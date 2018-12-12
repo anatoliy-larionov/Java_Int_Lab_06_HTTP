@@ -2,29 +2,24 @@ package http;
 
 import org.apache.http.HeaderElement;
 import org.apache.http.HeaderElementIterator;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicHeaderElementIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URISyntaxException;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class RequestHttpClient {
 
-    private HttpGet request = new HttpGet("https://yandex.ru/maps/44/izhevsk");
     private static final String REGEX_CSRFTOKEN = "csrfToken\":\"[^\"]++";
     private static final String REGEX_COORDINATES = "\"coordinates\":\\[(\\d+.){4}";
+    private HttpGet request = new HttpGet("http://yandex.ru/maps/44/izhevsk");
     private CloseableHttpResponse response;
     private BufferedReader bufferedReader;
     private StringBuilder result;
@@ -46,15 +41,14 @@ public class RequestHttpClient {
             while (matcher.find()) {
                 csrfToken = matcher.group();
             }
-            csrfToken = csrfToken.substring(Objects.requireNonNull(csrfToken).lastIndexOf('\"') + 1);
             return csrfToken;
         }
     }
 
     public String getYandexuid() {
-        HeaderElementIterator it = new BasicHeaderElementIterator(response.headerIterator("Set-Cookie"));
-        while (it.hasNext()) {
-            HeaderElement elem = it.nextElement();
+        HeaderElementIterator iterator = new BasicHeaderElementIterator(response.headerIterator("Set-Cookie")); // получаю куки
+        while (iterator.hasNext()) {
+            HeaderElement elem = iterator.nextElement();
             if (elem.getName().equals("yandexuid")) {
                 return elem.getValue();
             }
@@ -66,7 +60,7 @@ public class RequestHttpClient {
         URIBuilder uriBuilder = new URIBuilder();
         uriBuilder.setScheme("https");
         uriBuilder.setHost("yandex.ru");
-        uriBuilder.setPath("/maps");
+        uriBuilder.setPath("/maps/44/izhevsk/");
         uriBuilder.setParameter("text", address);
         uriBuilder.setParameter("lang", "ru_RU");
         uriBuilder.setParameter("csrfToken", getCsrfToken());
@@ -75,7 +69,7 @@ public class RequestHttpClient {
 
     private String getRequest(String address) throws IOException {
         request = new HttpGet(String.valueOf(generateCustomURI(address)));
-        request.setHeader("Cookie", "yandexuid=".concat(getYandexuid()));
+        request.setHeader("Cookie", "yandexuid=".concat(getYandexuid())); // передаю куки
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             response = client.execute(request);
             bufferedReader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
@@ -87,7 +81,8 @@ public class RequestHttpClient {
             return String.valueOf(result);
         }
     }
-    public String getCoordinates (String address) throws IOException {
+
+    public String getCoordinates(String address) throws IOException {
         String coordinates = "";
         pattern = Pattern.compile(REGEX_COORDINATES);
         matcher = pattern.matcher(getRequest(address));
